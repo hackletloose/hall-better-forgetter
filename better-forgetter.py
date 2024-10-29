@@ -10,6 +10,7 @@ import pytz  # Zeitzonenunterstützung
 load_dotenv()
 TOKEN = os.getenv('DISCORD_BOT_TOKEN')
 CHANNEL_ID = int(os.getenv('DISCORD_CHANNEL_ID'))
+TIMEZONE = os.getenv('LOCAL_TIMEZONE', 'Europe/Berlin')
 
 intents = discord.Intents.default()
 intents.messages = True
@@ -29,14 +30,13 @@ async def delete_old_messages():
         print(f'Kanal mit ID {CHANNEL_ID} nicht gefunden.')
         return
 
-    # Konvertiere `seven_days_ago` zu einem offset-aware datetime
     seven_days_ago = datetime.datetime.now(tz=datetime.timezone.utc) - datetime.timedelta(days=7)
 
     async for message in channel.history(limit=None):
         if message.created_at < seven_days_ago:
             try:
                 await message.delete()
-                await asyncio.sleep(1)  # Um Ratenbegrenzung zu vermeiden
+                await asyncio.sleep(1)
             except discord.Forbidden:
                 print('Fehler: Keine Berechtigung zum Löschen der Nachricht.')
             except discord.HTTPException as e:
@@ -51,9 +51,10 @@ async def schedule_deletion():
 async def before_schedule_deletion():
     # Warten, bis der Bot bereit ist
     await bot.wait_until_ready()
-    # Warte bis Mitternacht
-    now = datetime.datetime.now()
-    next_midnight = datetime.datetime.combine(now.date() + datetime.timedelta(days=1), datetime.time.min)
+    # Lokale Zeitzone festlegen
+    tz = pytz.timezone(TIMEZONE)
+    now = datetime.datetime.now(tz)
+    next_midnight = tz.localize(datetime.datetime.combine(now.date() + datetime.timedelta(days=1), datetime.time.min))
     await asyncio.sleep((next_midnight - now).total_seconds())
 
 bot.run(TOKEN)
